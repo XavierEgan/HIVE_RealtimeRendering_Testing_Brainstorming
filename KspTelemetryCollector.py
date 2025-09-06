@@ -10,13 +10,11 @@ import math
 import krpc
 conn = krpc.connect(name="fwer")
 space_center = conn.space_center
-
-if space_center == None:
-    raise RuntimeError("space_center is none")
+assert space_center is not None
 
 vessel = space_center.active_vessel
 flight = vessel.flight(vessel.surface_reference_frame)
-flightRelativeToKerbin = vessel.flight(vessel.orbit.body.reference_frame)
+flightRelativeToKerbin = vessel.flight(vessel.orbit.body.orbital_reference_frame)
 
 def fixQuanterniun(q):
     #because unity is weird and has w last
@@ -53,14 +51,16 @@ class Collector:
         self.previousVelocity = flightRelativeToKerbin.velocity
         self.previousRotation = flight.rotation
 
-        self.startTime = time.time()
+        assert space_center is not None
+        self.startTime = space_center.ut
 
         self.packetCountAv = 0
 
     def collectData(self, delta):
         packet = {}
 
-        packet["time"] = time.time() - self.startTime
+        assert space_center is not None
+        packet["time"] = space_center.ut - self.startTime
         packet["packetCountAv"] = self.packetCountAv
         self.packetCountAv += 1
 
@@ -105,19 +105,20 @@ def main():
 
     collector = Collector()
 
-    previousFrameStartTime = time.time()
+    assert space_center is not None
+    previousFrameStartTime = space_center.ut
     time.sleep(targetSPF)
     while True:
         try:
             # should error when i close the server
 
             # delta = the time the last frame took (including sleep)
-            delta = time.time() - previousFrameStartTime
-            previousFrameStartTime = time.time()
+            delta = space_center.ut - previousFrameStartTime
+            previousFrameStartTime = space_center.ut
 
             collector.collectData(delta)
 
-            frameTime = time.time() - previousFrameStartTime
+            frameTime = space_center.ut - previousFrameStartTime
             timeToSleep = targetSPF - frameTime
             time.sleep(0 if timeToSleep < 0 else timeToSleep)
 
