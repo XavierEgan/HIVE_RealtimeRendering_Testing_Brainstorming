@@ -46,74 +46,88 @@ def acclerationFromVelocity(vf, vi, dt):
 def clamp(x, limit):
     return max(-limit, min(limit, x))
 
+class Collector:
+    def __init__(self):
+        self.packets = []
+
+        self.previousVelocity = flightRelativeToKerbin.velocity
+        self.previousRotation = flight.rotation
+
+        self.startTime = time.time()
+
+        self.packetCountAv = 0
+
+    def collectData(self, delta):
+        packet = {}
+
+        packet["time"] = time.time() - self.startTime
+        packet["packetCountAv"] = self.packetCountAv
+        self.packetCountAv += 1
+
+        # krpc doesnt seem to expose acceleration so i gotta calc it myself.
+        acceleration = acclerationFromVelocity(flightRelativeToKerbin.velocity, self.previousVelocity, delta)
+        self.previousVelocity = flightRelativeToKerbin.velocity
+
+        packet["accelLowX"] = clamp(acceleration[0], 16)
+        packet["accelLowY"] = clamp(acceleration[1], 16)
+        packet["accelLowZ"] = clamp(acceleration[2], 16)
+        packet["accelHighX"] = clamp(acceleration[0], 32)
+        packet["accelHighY"] = clamp(acceleration[1], 32)
+        packet["accelHighZ"] = clamp(acceleration[2], 32)
+
+        angularVelocity = angularVelocityFromQuanterniun(self.previousRotation, flight.rotation, delta)
+        self.previousRotation = flight.rotation
+
+        packet["gyroX"] = angularVelocity[0]
+        packet["gyroY"] = angularVelocity[1]
+        packet["gyroZ"] = angularVelocity[2]
+
+        packet["altitude"] = flight.surface_altitude
+        packet["velocity"] = flightRelativeToKerbin.speed
+        packet["mach_number"] = flight.mach
+
+        packet["GPSLatitude"] = flight.latitude
+        packet["GPSLongitude"] = flight.longitude
+
+        packet["qw"] = flight.rotation[3]
+        packet["qx"] = flight.rotation[0]
+        packet["qy"] = flight.rotation[1]
+        packet["qz"] = flight.rotation[2]
+
+        self.packets.append(packet)
+
 def main():
-    packets = []
-
-    previousVelocity = [0.0, 0.0, 0.0]
-    previousRotation = [0.0, 0.0, 0.0, 0.0]
-
-    startTime = time.time()
-    prevTime = time.time()
-
-    packetCountAv = 0
+    targetFPS = 120
+    targetSPF = 1.0 / targetFPS
 
     vessel.control.activate_next_stage()
     vessel.control.throttle = 1
+
+    collector = Collector()
+
+    previousFrameStartTime = time.time()
+    time.sleep(targetSPF)
     while True:
         try:
-            # should error when we finish the launch because there is no longer a vehicle to talk to
-            delta = time.time() - prevTime
-            if (delta == 0.0):
-                delta = 1.0e-6
+            # should error when i close the server
 
-            time.sleep(.01)
+            # delta = the time the last frame took (including sleep)
+            delta = time.time() - previousFrameStartTime
+            previousFrameStartTime = time.time()
 
-            prevTime = time.time()
+            collector.collectData(delta)
 
-            packet = {}
+            frameTime = time.time() - previousFrameStartTime
+            timeToSleep = targetSPF - frameTime
+            time.sleep(0 if timeToSleep < 0 else timeToSleep)
 
-            packet["time"] = time.time() - startTime
-            packet["packetCountAv"] = packetCountAv
-            packetCountAv += 1
-
-            # krpc doesnt seem to expose acceleration so i gotta calc it myself.
-            acceleration = acclerationFromVelocity(flightRelativeToKerbin.velocity, previousVelocity, delta)
-            previousVelocity = flightRelativeToKerbin.velocity
-
-            packet["accelLowX"] = clamp(acceleration[0], 16)
-            packet["accelLowY"] = clamp(acceleration[1], 16)
-            packet["accelLowZ"] = clamp(acceleration[2], 16)
-            packet["accelHighX"] = clamp(acceleration[0], 32)
-            packet["accelHighY"] = clamp(acceleration[1], 32)
-            packet["accelHighZ"] = clamp(acceleration[2], 32)
-
-            angularVelocity = angularVelocityFromQuanterniun(previousRotation, flight.rotation, delta)
-            previousRotation = flight.rotation
-
-            packet["gyroX"] = angularVelocity[0]
-            packet["gyroY"] = angularVelocity[1]
-            packet["gyroZ"] = angularVelocity[2]
-
-            packet["altitude"] = flight.surface_altitude
-            packet["velocity"] = flightRelativeToKerbin.speed
-            packet["mach_number"] = flight.mach
-
-            packet["GPSLatitude"] = flight.latitude
-            packet["GPSLongitude"] = flight.longitude
-
-            packet["qw"] = flight.rotation[3]
-            packet["qx"] = flight.rotation[0]
-            packet["qy"] = flight.rotation[1]
-            packet["qz"] = flight.rotation[2]
-
-            packets.append(packet)
         except Exception as e:
             print(e)
             break
 
 
-    with open("testdata/launch1.json", mode="x", encoding="utf-8") as file:
-        file.write(json.dumps(packets, indent=4))
+    with open("testdata/launch2.json", mode="x", encoding="utf-8") as file:
+        file.write(json.dumps(collector.packets, indent=4))
 
 if __name__ == "__main__":
     main()
