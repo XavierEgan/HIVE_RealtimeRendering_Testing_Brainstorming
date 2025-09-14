@@ -1,117 +1,137 @@
+# NOTES:
+# This is very scuffed
+# only works for one client
+# please god rewrite this if you intend to use it for anything other than simple testing
+
 # server.py
 import asyncio
 from websockets.asyncio.server import serve
 import json
+import time
 
-class TestPacket:
-    def __init__(self):
-        self.time = 0
-        self.packetCountAv = 0
-        
-        self.accelLowX = 0
-        self.accelLowY = 0
-        self.accelLowZ = 0
-        self.accelHighX = 0
-        self.accelHighY = 0
-        self.accelHighZ = 0
+def getRocketPacketFromTelemetryPacket(telemetry):
+    packet1 = {
+        "id": 3,
+        "data": {
+            "meta": {
+                "rssi": -15.454711,
+                "snr": 0.37879905,
+                "timestampS": telemetry["time"],
+                "totalPacketCountAv": f"{telemetry['packetCountAv']}",
+                "totalPacketCountGse": "946",
+            },
+            "flightState": "PRE_FLIGHT_NO_FLIGHT_READY",
+            "stateFlags": {
+                "dualBoardConnectivityStateFlag": False,
+                "recoveryChecksCompleteAndFlightReady": False,
+                "GPSFixFlag": False,
+                "payloadConnectionFlag": True,
+                "cameraControllerConnectionFlag": True,
+            },
+            "accelLowX": telemetry["accelLowX"],
+            "accelLowY": telemetry["accelLowY"],
+            "accelLowZ": telemetry["accelLowZ"],
+            "accelHighX": telemetry["accelHighX"],
+            "accelHighY": telemetry["accelHighY"],
+            "accelHighZ": telemetry["accelHighZ"],
+            "gyroX": telemetry["gyroX"],
+            "gyroY": telemetry["gyroY"],
+            "gyroZ": telemetry["gyroZ"],
+            "altitude": telemetry["altitude"],
+            "velocity": telemetry["velocity"],
+            "apogeePrimaryTestComplete": False,
+            "apogeeSecondaryTestComplete": False,
+            "apogeePrimaryTestResults": False,
+            "apogeeSecondaryTestResults": False,
+            "mainPrimaryTestComplete": False,
+            "mainSecondaryTestComplete": False,
+            "mainPrimaryTestResults": False,
+            "mainSecondaryTestResults": False,
+            "broadcastFlag": False,
+            "mach_number": telemetry["mach_number"],
+        }
+    }
+    packet2 = {
+        "id": 4,
+        "data": {
+            "meta": {
+                "rssi": -14.7131,
+                "snr": 0.442897,
+                "timestampS": telemetry["time"],
+                "totalPacketCountAv": telemetry['packetCountAv'],
+                "totalPacketCountGse": "944",
+            },
+            "flightState": "PRE_FLIGHT_NO_FLIGHT_READY",
+            "stateFlags": {
+                "dualBoardConnectivityStateFlag": False,
+                "recoveryChecksCompleteAndFlightReady": False,
+                "GPSFixFlag": False,
+                "payloadConnectionFlag": True,
+                "cameraControllerConnectionFlag": True,
+            },
+            "GPSLatitude": telemetry["GPSLatitude"],
+            "GPSLongitude": telemetry["GPSLongitude"],
+            "navigationStatus": "NA",
+            "qw": telemetry["qw"],
+            "qx": telemetry["qx"],
+            "qy": telemetry["qy"],
+            "qz": telemetry["qz"],
+        }
+    }
 
-        self.gyroX = 0
-        self.gyroY = 0
-        self.gyroZ = 0
+    return packet1, packet2
 
-        self.altitude = 0
-        self.velocity = 0
+fileLocation = input("Which file would you like to emulate? > ")
+fileLocation = "testdata/" + fileLocation + ".json"
+telemetryPackets = []
+try:
+    with open(fileLocation, "r") as file:
+        telemetryPackets = json.load(file)
+except:
+    print(f"could not open file {fileLocation}")
+    quit()
 
-        self.latitude = 0
-        self.longitude = 0
+if len(telemetryPackets) == 0:
+    print("json file empty")
 
-        self.qw = 0
-        self.qx = 0
-        self.qy = 0
-        self.qz = 0
+nextPacketTime = telemetryPackets[0]["time"]
 
-        self.mach = 0
-    
-    def getPacket(self, id) -> str:
-        packet = {}
-        if (id == 3):
-            packet["id"] = 3
-            packet["data"] = {
-                "meta": {
-                    "rssi": -15.454711,
-                    "snr": 0.37879905,
-                    "timestampS": self.time,
-                    "totalPacketCountAv": f"{self.packetCountAv}",
-                    "totalPacketCountGse": "946",
-                },
-                "flightState": "PRE_FLIGHT_NO_FLIGHT_READY",
-                "stateFlags": {
-                    "dualBoardConnectivityStateFlag": False,
-                    "recoveryChecksCompleteAndFlightReady": False,
-                    "GPSFixFlag": False,
-                    "payloadConnectionFlag": True,
-                    "cameraControllerConnectionFlag": True,
-                },
-                "accelLowX": self.accelLowX,
-                "accelLowY": self.accelLowY,
-                "accelLowZ": self.accelLowZ,
-                "accelHighX": self.accelHighX,
-                "accelHighY": self.accelHighY,
-                "accelHighZ": self.accelHighZ,
-                "gyroX": self.gyroX,
-                "gyroY": self.gyroY,
-                "gyroZ": self.gyroZ,
-                "altitude": self.altitude,
-                "velocity": self.velocity,
-                "apogeePrimaryTestComplete": False,
-                "apogeeSecondaryTestComplete": False,
-                "apogeePrimaryTestResults": False,
-                "apogeeSecondaryTestResults": False,
-                "mainPrimaryTestComplete": False,
-                "mainSecondaryTestComplete": False,
-                "mainPrimaryTestResults": False,
-                "mainSecondaryTestResults": False,
-                "broadcastFlag": False,
-                "mach_number": self.mach,
-            }
-        elif (id == 4):
-            packet["id"] = 4
-            packet["data"] = {
-                "meta": {
-                    "rssi": -14.7131,
-                    "snr": 0.442897,
-                    "timestampS": self.time,
-                    "totalPacketCountAv": f"{self.packetCountAv}",
-                    "totalPacketCountGse": "944",
-                },
-                "flightState": "PRE_FLIGHT_NO_FLIGHT_READY",
-                "stateFlags": {
-                    "dualBoardConnectivityStateFlag": False,
-                    "recoveryChecksCompleteAndFlightReady": False,
-                    "GPSFixFlag": False,
-                    "payloadConnectionFlag": True,
-                    "cameraControllerConnectionFlag": True,
-                },
-                "GPSLatitude": self.longitude,
-                "GPSLongitude": self.latitude,
-                "navigationStatus": "NA",
-                "qw": self.qw,
-                "qx": self.qx,
-                "qy": self.qy,
-                "qz": self.qz,
-            }
+packetUpTo = 0
+startTime = time.time()
 
-        return json.dumps(packet)
+async def sendPacket(websocket):
+    global packetUpTo
+    global startTime
 
-    def readJsonObj(jsonObj):
-        pass
+    # yes we are ignoring the last packet, idrc its the easiest way to do it
+    if packetUpTo >= len(telemetryPackets) - 2:
+        return True
 
-async def send(websocket):
-    await websocket.send("hi")
+    elapsedTime = time.time() - startTime
+    if elapsedTime >= telemetryPackets[packetUpTo + 1]["time"]:
+        packetUpTo += 1
+    else:
+        return False
+
+    packets = getRocketPacketFromTelemetryPacket(telemetryPackets[packetUpTo])
+    await websocket.send(json.dumps(packets[0]))
+    #print(f"sending packet: {packets[0]}")
+    await websocket.send(json.dumps(packets[1]))
+    #print(f"sending packet: {packets[1]}")
+
+    return False
+
+async def sendPackets(websocket):
+    while True:
+        done = await sendPacket(websocket)
+        if (done):
+            print("done")
+            return
+
 
 
 async def main():
-    async with serve(send, "localhost", 8765) as server:
+    async with serve(sendPackets, "localhost", 8765) as server:
         await server.serve_forever()
 
 
