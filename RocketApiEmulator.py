@@ -103,21 +103,19 @@ async def sendPacket(websocket):
     global packetUpTo
     global startTime
 
-    # yes we are ignoring the last packet, idrc its the easiest way to do it
-    if packetUpTo >= len(telemetryPackets) - 2:
-        return True
-
     elapsedTime = time.time() - startTime
-    if elapsedTime >= telemetryPackets[packetUpTo + 1]["time"]:
-        packetUpTo += 1
-    else:
-        return False
-
+    
+    # find the next packet (may skip some)
+    for i in range(packetUpTo, len(telemetryPackets)):
+        if (elapsedTime < telemetryPackets[i]["time"]):
+            packetUpTo = i - 1
+            break
+    
+    print("sending packets")
+    
     packets = getRocketPacketFromTelemetryPacket(telemetryPackets[packetUpTo])
     await websocket.send(json.dumps(packets[0]))
-    #print(f"sending packet: {packets[0]}")
     await websocket.send(json.dumps(packets[1]))
-    #print(f"sending packet: {packets[1]}")
 
     return False
 
