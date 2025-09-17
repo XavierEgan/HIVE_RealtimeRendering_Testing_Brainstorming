@@ -8,6 +8,13 @@ import asyncio
 from websockets.asyncio.server import serve
 import json
 import time
+import random
+
+# constants
+TARGET_PACKET_HZ = 10
+TARGET_PACKET_S = 1/TARGET_PACKET_HZ
+PACKET_INNACURACY = .05 # 1 corresponds to: x += x, .5 corresponds to x += .5x
+
 
 def getRocketPacketFromTelemetryPacket(telemetry):
     packet1 = {
@@ -94,42 +101,54 @@ except:
 if len(telemetryPackets) == 0:
     print("json file empty")
 
-nextPacketTime = telemetryPackets[0]["time"]
+class RocketEmulator:
+    previousSentPacket = 0
+    previousSentPacketTime = 0
+    startTime = 0
 
-packetUpTo = 0
-startTime = time.time()
+    def __init__(self):
+        self.startTime = time.time()
 
-async def sendPacket(websocket):
-    global packetUpTo
-    global startTime
-
-    elapsedTime = time.time() - startTime
+    def findNextPacket(self, elapsedTime):
+        for i in range(len(telemetryPackets)):
+            if (elapsedTime < telemetryPackets[i]["time"]):
+                return i
+        return 0
     
-    # find the next packet (may skip some)
-    for i in range(packetUpTo, len(telemetryPackets)):
-        if (elapsedTime < telemetryPackets[i]["time"]):
-            packetUpTo = i - 1
-            break
+    async def sendPacket(self, websocket, elapsedTime):
+        
     
-    print("sending packets")
+        packetUpTo = self.findNextPacket(elapsedTime)
+        
+        print(f"sending packets t={elapsedTime} p={packetUpTo}")
+        
+        packets = getRocketPacketFromTelemetryPacket(telemetryPackets[packetUpTo])
+        await websocket.send(json.dumps(packets[0]))
+        await websocket.send(json.dumps(packets[1]))
+
+        self.previousSentPacket = packetUpTo
+        self.previousSentPacketTime = time.time()
+
+        return False
     
-    packets = getRocketPacketFromTelemetryPacket(telemetryPackets[packetUpTo])
-    await websocket.send(json.dumps(packets[0]))
-    await websocket.send(json.dumps(packets[1]))
+    async def sendPackets(self, websocket):
+        while True:
+            elapsedTime = time.time() - self.startTime
 
-    return False
+            if (time.time() - self.previousSentPacketTime < TARGET_PACKET_S):
+                continue
 
-async def sendPackets(websocket):
-    while True:
-        done = await sendPacket(websocket)
-        if (done):
-            print("done")
-            return
+            done = await self.sendPacket(websocket, elapsedTime)
+            if (done):
+                print("done")
+                return
 
-
+async def handle(websocket):
+    rocketEmulator = RocketEmulator()
+    await rocketEmulator.sendPackets(websocket)
 
 async def main():
-    async with serve(sendPackets, "localhost", 8765) as server:
+    async with serve(handle, "localhost", 8765) as server:
         await server.serve_forever()
 
 
