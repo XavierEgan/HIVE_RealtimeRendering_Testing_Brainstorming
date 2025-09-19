@@ -110,8 +110,9 @@ if len(telemetryPackets) == 0:
     Logging.printWarn("json file empty")
 
 class RocketEmulator:
-    startTime = time.monotonic()
-    packetIndex = 0
+    def __init__(self) -> None:
+        self.startTime = time.monotonic()
+        self.packetIndex = 0
     
     async def sendPackets(self, websocket):
         try:
