@@ -8,6 +8,13 @@ import asyncio
 from websockets.asyncio.server import serve
 import json
 import time
+import random
+
+# constants
+TARGET_PACKET_HZ = 10
+TARGET_PACKET_S = 1/TARGET_PACKET_HZ
+PACKET_INNACURACY = .05 # 1 corresponds to: x += x, .5 corresponds to x += .5x
+
 
 def getRocketPacketFromTelemetryPacket(telemetry):
     packet1 = {
@@ -81,55 +88,60 @@ def getRocketPacketFromTelemetryPacket(telemetry):
 
     return packet1, packet2
 
-fileLocation = input("Which file would you like to emulate? > ")
-fileLocation = "testdata/" + fileLocation + ".json"
-telemetryPackets = []
-try:
-    with open(fileLocation, "r") as file:
-        telemetryPackets = json.load(file)
-except:
-    print(f"could not open file {fileLocation}")
-    quit()
+while True:
+    fileLocation = input("Which file would you like to emulate? > ")
+    fileLocation = "testdata/" + fileLocation + ".json"
+    telemetryPackets = []
+    try:
+        with open(fileLocation, "r") as file:
+            telemetryPackets = json.load(file)
+
+        print(f"[INFO] Opened File '{fileLocation}'")
+    except:
+        print(f"[WARNING] Could Not Open File '{fileLocation}'")
+        continue
+    break
 
 if len(telemetryPackets) == 0:
-    print("json file empty")
+    print("[WARNING] json file empty")
 
-nextPacketTime = telemetryPackets[0]["time"]
+class RocketEmulator:
+    startTime = time.monotonic()
 
-packetUpTo = 0
-startTime = time.time()
-
-async def sendPacket(websocket):
-    global packetUpTo
-    global startTime
-
-    elapsedTime = time.time() - startTime
+    packetIndex = 0
     
-    # find the next packet (may skip some)
-    for i in range(packetUpTo, len(telemetryPackets)):
-        if (elapsedTime < telemetryPackets[i]["time"]):
-            packetUpTo = i - 1
-            break
-    
-    print("sending packets")
-    
-    packets = getRocketPacketFromTelemetryPacket(telemetryPackets[packetUpTo])
-    await websocket.send(json.dumps(packets[0]))
-    await websocket.send(json.dumps(packets[1]))
+    async def sendPackets(self, websocket):
+        try:
+            while True:
+                now = time.monotonic()
+                elapsed = now - self.startTime
 
-    return False
+                # keep going till we find a packet with an elapsed time greater than the actual elapsed time
+                while elapsed >= telemetryPackets[self.packetIndex]["time"]:
+                    self.packetIndex += 1
+                
+                self.packetIndex = self.packetIndex - 1 if self.packetIndex != 0 else self.packetIndex
 
-async def sendPackets(websocket):
-    while True:
-        done = await sendPacket(websocket)
-        if (done):
-            print("done")
-            return
+                rocketPackets = getRocketPacketFromTelemetryPacket(telemetryPackets[self.packetIndex])
+                
+                print(f"[INFO] Sending Packet - t={telemetryPackets[self.packetIndex]['time']} p={self.packetIndex}")
 
+                await websocket.send(json.dumps(rocketPackets[0]))
+                await websocket.send(json.dumps(rocketPackets[0]))
 
+                frameTime = time.monotonic() - now
+                waitTime = TARGET_PACKET_S - frameTime
+                await asyncio.sleep(waitTime)
+        except Exception as e:
+            print(f"[INFO] Client Disconnected or Error: {e}")
+
+async def handle(websocket):
+    rocketEmulator = RocketEmulator()
+    await rocketEmulator.sendPackets(websocket)
 
 async def main():
-    async with serve(sendPackets, "localhost", 8765) as server:
+    print(f"[INFO] Waiting for Connection...")
+    async with serve(handle, "localhost", 8765) as server:
         await server.serve_forever()
 
 
