@@ -128,7 +128,8 @@ class RocketEmulator:
                     if self.packetIndex >= len(telemetryPackets):
                         self.packetIndex = 0
                         self.startTime = time.monotonic()
-                        continue
+                        Logging.printInfo("Reached end of playback, replaying")
+                        break
                 
                 self.packetIndex = self.packetIndex - 1 if self.packetIndex != 0 else self.packetIndex
 
@@ -143,7 +144,7 @@ class RocketEmulator:
                 waitTime = TARGET_PACKET_S - frameTime
                 await asyncio.sleep(waitTime)
         except Exception as e:
-            Logging.printInfo(f"Client Disconnected or Error: {e}")
+            Logging.printWarn(f"Client Disconnected or Error: {e}")
 
 async def handle(websocket: ServerConnection):
     Logging.printInfo(f"New Connection")
