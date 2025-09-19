@@ -8,13 +8,6 @@ import asyncio
 from websockets.asyncio.server import serve
 import json
 import time
-import random
-
-# constants
-TARGET_PACKET_HZ = 10
-TARGET_PACKET_S = 1/TARGET_PACKET_HZ
-PACKET_INNACURACY = .05 # 1 corresponds to: x += x, .5 corresponds to x += .5x
-
 
 def getRocketPacketFromTelemetryPacket(telemetry):
     packet1 = {
@@ -24,8 +17,8 @@ def getRocketPacketFromTelemetryPacket(telemetry):
                 "rssi": -15.454711,
                 "snr": 0.37879905,
                 "timestampS": telemetry["time"],
-                "totalPacketCountAv": f"{telemetry['packetCountAv']}",
-                "totalPacketCountGse": "946",
+                "totalPacketCountAv": telemetry['packetCountAv'],
+                "totalPacketCountGse": telemetry['packetCountAv'],
             },
             "flightState": "PRE_FLIGHT_NO_FLIGHT_READY",
             "stateFlags": {
@@ -66,7 +59,7 @@ def getRocketPacketFromTelemetryPacket(telemetry):
                 "snr": 0.442897,
                 "timestampS": telemetry["time"],
                 "totalPacketCountAv": telemetry['packetCountAv'],
-                "totalPacketCountGse": "944",
+                "totalPacketCountGse": telemetry['packetCountAv'],
             },
             "flightState": "PRE_FLIGHT_NO_FLIGHT_READY",
             "stateFlags": {
@@ -101,54 +94,42 @@ except:
 if len(telemetryPackets) == 0:
     print("json file empty")
 
-class RocketEmulator:
-    previousSentPacket = 0
-    previousSentPacketTime = 0
-    startTime = 0
+nextPacketTime = telemetryPackets[0]["time"]
 
-    def __init__(self):
-        self.startTime = time.time()
+packetUpTo = 0
+startTime = time.time()
 
-    def findNextPacket(self, elapsedTime):
-        for i in range(len(telemetryPackets)):
-            if (elapsedTime < telemetryPackets[i]["time"]):
-                return i
-        return 0
+async def sendPacket(websocket):
+    global packetUpTo
+    global startTime
+
+    elapsedTime = time.time() - startTime
     
-    async def sendPacket(self, websocket, elapsedTime):
-        
+    # find the next packet (may skip some)
+    for i in range(packetUpTo, len(telemetryPackets)):
+        if (elapsedTime < telemetryPackets[i]["time"]):
+            packetUpTo = i - 1
+            break
     
-        packetUpTo = self.findNextPacket(elapsedTime)
-        
-        print(f"sending packets t={elapsedTime} p={packetUpTo}")
-        
-        packets = getRocketPacketFromTelemetryPacket(telemetryPackets[packetUpTo])
-        await websocket.send(json.dumps(packets[0]))
-        await websocket.send(json.dumps(packets[1]))
-
-        self.previousSentPacket = packetUpTo
-        self.previousSentPacketTime = time.time()
-
-        return False
+    print("sending packets")
     
-    async def sendPackets(self, websocket):
-        while True:
-            elapsedTime = time.time() - self.startTime
+    packets = getRocketPacketFromTelemetryPacket(telemetryPackets[packetUpTo])
+    await websocket.send(json.dumps(packets[0]))
+    await websocket.send(json.dumps(packets[1]))
 
-            if (time.time() - self.previousSentPacketTime < TARGET_PACKET_S):
-                continue
+    return False
 
-            done = await self.sendPacket(websocket, elapsedTime)
-            if (done):
-                print("done")
-                return
+async def sendPackets(websocket):
+    while True:
+        done = await sendPacket(websocket)
+        if (done):
+            print("done")
+            return
 
-async def handle(websocket):
-    rocketEmulator = RocketEmulator()
-    await rocketEmulator.sendPackets(websocket)
+
 
 async def main():
-    async with serve(handle, "localhost", 8765) as server:
+    async with serve(sendPackets, "localhost", 8765) as server:
         await server.serve_forever()
 
 
