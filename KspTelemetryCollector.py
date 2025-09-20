@@ -127,7 +127,7 @@ def main():
             break
 
 
-    with open("testdata/launch2.json", mode="x", encoding="utf-8") as file:
+    with open("testdata/launch3.json", mode="x", encoding="utf-8") as file:
         file.write(json.dumps(collector.packets, indent=4))
 
 if __name__ == "__main__":
