@@ -1,6 +1,6 @@
 # NOTES:
 # This is very scuffed
-# only works for one client
+# only works for one client - Nuh uh, i fixed that
 # please god rewrite this if you intend to use it for anything other than simple testing
 
 # server.py
@@ -14,9 +14,13 @@ import random
 from Logging import Logging
 
 # constants
-TARGET_PACKET_HZ = 10
+TARGET_PACKET_HZ = 60
 TARGET_PACKET_S = 1/TARGET_PACKET_HZ
 PACKET_INNACURACY = .05 # 1 corresponds to: x += x, .5 corresponds to x += .5x
+
+def randomInaccuracy(value):
+    inaccuracy = value * PACKET_INNACURACY
+    return value + random.uniform(-inaccuracy, inaccuracy)
 
 def getRocketPacketFromTelemetryPacket(telemetry):
     packet1 = {
@@ -37,17 +41,17 @@ def getRocketPacketFromTelemetryPacket(telemetry):
                 "payloadConnectionFlag": True,
                 "cameraControllerConnectionFlag": True,
             },
-            "accelLowX": telemetry["accelLowX"],
-            "accelLowY": telemetry["accelLowY"],
-            "accelLowZ": telemetry["accelLowZ"],
-            "accelHighX": telemetry["accelHighX"],
-            "accelHighY": telemetry["accelHighY"],
-            "accelHighZ": telemetry["accelHighZ"],
-            "gyroX": telemetry["gyroX"],
-            "gyroY": telemetry["gyroY"],
-            "gyroZ": telemetry["gyroZ"],
-            "altitude": telemetry["altitude"],
-            "velocity": telemetry["velocity"],
+            "accelLowX": randomInaccuracy(telemetry["accelLowX"]),
+            "accelLowY": randomInaccuracy(telemetry["accelLowY"]),
+            "accelLowZ": randomInaccuracy(telemetry["accelLowZ"]),
+            "accelHighX": randomInaccuracy(telemetry["accelHighX"]),
+            "accelHighY": randomInaccuracy(telemetry["accelHighY"]),
+            "accelHighZ": randomInaccuracy(telemetry["accelHighZ"]),
+            "gyroX": randomInaccuracy(telemetry["gyroX"]),
+            "gyroY": randomInaccuracy(telemetry["gyroY"]),
+            "gyroZ": randomInaccuracy(telemetry["gyroZ"]),
+            "altitude": randomInaccuracy(telemetry["altitude"]),
+            "velocity": randomInaccuracy(telemetry["velocity"]),
             "apogeePrimaryTestComplete": False,
             "apogeeSecondaryTestComplete": False,
             "apogeePrimaryTestResults": False,
@@ -78,18 +82,19 @@ def getRocketPacketFromTelemetryPacket(telemetry):
                 "payloadConnectionFlag": True,
                 "cameraControllerConnectionFlag": True,
             },
-            "GPSLatitude": telemetry["GPSLatitude"],
-            "GPSLongitude": telemetry["GPSLongitude"],
+            "GPSLatitude": randomInaccuracy(telemetry["GPSLatitude"]),
+            "GPSLongitude": randomInaccuracy(telemetry["GPSLongitude"]),
             "navigationStatus": "NA",
-            "qw": telemetry["qw"],
-            "qx": telemetry["qx"],
-            "qy": telemetry["qy"],
-            "qz": telemetry["qz"],
+            "qw": randomInaccuracy(telemetry["qw"]),
+            "qx": randomInaccuracy(telemetry["qx"]),
+            "qy": randomInaccuracy(telemetry["qy"]),
+            "qz": randomInaccuracy(telemetry["qz"]),
         }
     }
 
     return packet1, packet2
 
+# clear screen
 print("\033[H\033[2J")
 
 while True:
@@ -135,7 +140,7 @@ class RocketEmulator:
 
                 rocketPackets = getRocketPacketFromTelemetryPacket(telemetryPackets[self.packetIndex])
                 
-                Logging.printInfo(f"Sending Packet - t={telemetryPackets[self.packetIndex]['time']} p={self.packetIndex}")
+                Logging.printInfo(f"Sending Packet - t={telemetryPackets[self.packetIndex]['time']} p={self.packetIndex} / {len(telemetryPackets)}")
 
                 await websocket.send(json.dumps(rocketPackets[0]))
                 await websocket.send(json.dumps(rocketPackets[1]))
