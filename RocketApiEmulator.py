@@ -14,13 +14,9 @@ import random
 from Logging import Logging
 
 # constants
-TARGET_PACKET_HZ = 60
+TARGET_PACKET_HZ = 10
 TARGET_PACKET_S = 1/TARGET_PACKET_HZ
 PACKET_INNACURACY = .05 # 1 corresponds to: x += x, .5 corresponds to x += .5x
-
-def randomInaccuracy(value):
-    inaccuracy = value * PACKET_INNACURACY
-    return value + random.uniform(-inaccuracy, inaccuracy)
 
 def getRocketPacketFromTelemetryPacket(telemetry):
     packet1 = {
@@ -41,17 +37,17 @@ def getRocketPacketFromTelemetryPacket(telemetry):
                 "payloadConnectionFlag": True,
                 "cameraControllerConnectionFlag": True,
             },
-            "accelLowX": randomInaccuracy(telemetry["accelLowX"]),
-            "accelLowY": randomInaccuracy(telemetry["accelLowY"]),
-            "accelLowZ": randomInaccuracy(telemetry["accelLowZ"]),
-            "accelHighX": randomInaccuracy(telemetry["accelHighX"]),
-            "accelHighY": randomInaccuracy(telemetry["accelHighY"]),
-            "accelHighZ": randomInaccuracy(telemetry["accelHighZ"]),
-            "gyroX": randomInaccuracy(telemetry["gyroX"]),
-            "gyroY": randomInaccuracy(telemetry["gyroY"]),
-            "gyroZ": randomInaccuracy(telemetry["gyroZ"]),
-            "altitude": randomInaccuracy(telemetry["altitude"]),
-            "velocity": randomInaccuracy(telemetry["velocity"]),
+            "accelLowX": telemetry["accelLowX"],
+            "accelLowY": telemetry["accelLowY"],
+            "accelLowZ": telemetry["accelLowZ"],
+            "accelHighX": telemetry["accelHighX"],
+            "accelHighY": telemetry["accelHighY"],
+            "accelHighZ": telemetry["accelHighZ"],
+            "gyroX": telemetry["gyroX"],
+            "gyroY": telemetry["gyroY"],
+            "gyroZ": telemetry["gyroZ"],
+            "altitude": telemetry["altitude"],
+            "velocity": telemetry["velocity"],
             "apogeePrimaryTestComplete": False,
             "apogeeSecondaryTestComplete": False,
             "apogeePrimaryTestResults": False,
@@ -82,13 +78,13 @@ def getRocketPacketFromTelemetryPacket(telemetry):
                 "payloadConnectionFlag": True,
                 "cameraControllerConnectionFlag": True,
             },
-            "GPSLatitude": randomInaccuracy(telemetry["GPSLatitude"]),
-            "GPSLongitude": randomInaccuracy(telemetry["GPSLongitude"]),
+            "GPSLatitude": telemetry["GPSLatitude"],
+            "GPSLongitude": telemetry["GPSLongitude"],
             "navigationStatus": "NA",
-            "qw": randomInaccuracy(telemetry["qw"]),
-            "qx": randomInaccuracy(telemetry["qx"]),
-            "qy": randomInaccuracy(telemetry["qy"]),
-            "qz": randomInaccuracy(telemetry["qz"]),
+            "qw": telemetry["qw"],
+            "qx": telemetry["qx"],
+            "qy": telemetry["qy"],
+            "qz": telemetry["qz"],
         }
     }
 
