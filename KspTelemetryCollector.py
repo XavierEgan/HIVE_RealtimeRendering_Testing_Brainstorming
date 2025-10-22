@@ -16,6 +16,10 @@ vessel = space_center.active_vessel
 flight = vessel.flight(vessel.surface_reference_frame)
 flightRelativeToKerbin = vessel.flight(vessel.orbit.body.orbital_reference_frame)
 
+targetFPS = 240
+targetSPF = 1.0 / targetFPS
+GRAVITY = 9.81
+
 def fixQuanterniun(q):
     #because unity is weird and has w last
     return [q[3], q[0], q[1], q[2]]
@@ -35,11 +39,11 @@ def angularVelocityFromQuanterniun(previous, now, dt):
     return ret
 
 def acclerationFromVelocity(vf, vi, dt):
-    return [
-        (vf[0] - vi[0]) / dt,
-        (vf[1] - vi[1]) / dt,
-        (vf[2] - vi[2]) / dt
-    ]
+    return (
+        (vf[0] - vi[0]) / dt / GRAVITY,
+        (vf[1] - vi[1]) / dt / GRAVITY,
+        (vf[2] - vi[2]) / dt / GRAVITY
+    )
 
 def clamp(x, limit):
     return max(-limit, min(limit, x))
@@ -97,15 +101,13 @@ class Collector:
         self.packets.append(packet)
 
 def main():
-    targetFPS = 120
-    targetSPF = 1.0 / targetFPS
-
     vessel.control.activate_next_stage()
     vessel.control.throttle = 1
 
     collector = Collector()
 
     assert space_center is not None
+
     previousFrameStartTime = space_center.ut
     time.sleep(targetSPF)
     while True:
