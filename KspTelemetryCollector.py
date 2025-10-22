@@ -95,10 +95,10 @@ class Collector:
         packet["GPSLatitude"] = flight.latitude
         packet["GPSLongitude"] = flight.longitude
 
-        packet["qw"] = flight.rotation[3]
-        packet["qx"] = flight.rotation[0]
-        packet["qy"] = flight.rotation[1]
-        packet["qz"] = flight.rotation[2]
+        packet["qw"] = current_rotation[3]
+        packet["qx"] = current_rotation[0]
+        packet["qy"] = current_rotation[1]
+        packet["qz"] = current_rotation[2]
 
         self.packets.append(packet)
 
