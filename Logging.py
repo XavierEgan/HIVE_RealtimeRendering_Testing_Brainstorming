@@ -8,5 +8,5 @@ class Logging:
         print(f"\033[0;33m[WARNING] {s}\033[0m")
 
     @staticmethod
-    def printErr(s):
+    def printError(s):
         print(f"\033[0;1;31m[ERROR] {s}\033[0m")

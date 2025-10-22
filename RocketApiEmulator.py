@@ -103,7 +103,7 @@ while True:
 
         Logging.printInfo(f"Opened File '{fileLocation}'")
     except:
-        Logging.printWarn(f"Could Not Open File '{fileLocation}'")
+        Logging.printError(f"Could Not Open File '{fileLocation}'")
         continue
     break
 
