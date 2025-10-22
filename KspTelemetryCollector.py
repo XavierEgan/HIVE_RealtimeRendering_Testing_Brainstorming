@@ -4,7 +4,6 @@ Launch a rocket in the game KSP and record where it is for example data
 
 import krpc
 import json
-import time
 import math
 
 import krpc
@@ -60,17 +59,20 @@ class Collector:
 
         self.packetCountAv = 0
 
-    def collectData(self, delta):
+    def collectData(self, current_time, delta):
         packet = {}
 
         assert space_center is not None
-        packet["time"] = space_center.ut - self.startTime
+        packet["time"] = current_time - self.startTime
         packet["packetCountAv"] = self.packetCountAv
         self.packetCountAv += 1
 
+        current_velocity = flightRelativeToKerbin.velocity
+        current_rotation = flight.rotation
+
         # krpc doesnt seem to expose acceleration so i gotta calc it myself.
-        acceleration = acclerationFromVelocity(flightRelativeToKerbin.velocity, self.previousVelocity, delta)
-        self.previousVelocity = flightRelativeToKerbin.velocity
+        acceleration = acclerationFromVelocity(current_velocity, self.previousVelocity, delta)
+        self.previousVelocity = current_velocity
 
         packet["accelLowX"] = clamp(acceleration[0], 16)
         packet["accelLowY"] = clamp(acceleration[1], 16)
@@ -79,8 +81,8 @@ class Collector:
         packet["accelHighY"] = clamp(acceleration[1], 32)
         packet["accelHighZ"] = clamp(acceleration[2], 32)
 
-        angularVelocity = angularVelocityFromQuanterniun(self.previousRotation, flight.rotation, delta)
-        self.previousRotation = flight.rotation
+        angularVelocity = angularVelocityFromQuanterniun(self.previousRotation, current_rotation, delta)
+        self.previousRotation = current_rotation
 
         packet["gyroX"] = angularVelocity[0]
         packet["gyroY"] = angularVelocity[1]
@@ -108,28 +110,24 @@ def main():
 
     assert space_center is not None
 
-    previousFrameStartTime = space_center.ut
-    time.sleep(targetSPF)
-    while True:
-        try:
-            # should error when i close the server
+    time_at_last_collection = space_center.ut
+    try:
+        while True:
+            current_time = space_center.ut
+            time_since_last_collection = current_time - time_at_last_collection
 
-            # delta = the time the last frame took (including sleep)
-            delta = space_center.ut - previousFrameStartTime
-            previousFrameStartTime = space_center.ut
+            if (time_since_last_collection <= targetSPF):
+                continue
 
-            collector.collectData(delta)
+            time_at_last_collection = current_time
 
-            frameTime = space_center.ut - previousFrameStartTime
-            timeToSleep = targetSPF - frameTime
-            time.sleep(0 if timeToSleep < 0 else timeToSleep)
-
-        except Exception as e:
-            print(e)
-            break
+            collector.collectData(current_time, time_since_last_collection)
+            
+    except Exception as e:
+        print(e)
 
 
-    with open("testdata/launch3.json", mode="x", encoding="utf-8") as file:
+    with open("testdata/temp.json", mode="x", encoding="utf-8") as file:
         file.write(json.dumps(collector.packets, indent=4))
 
 if __name__ == "__main__":
